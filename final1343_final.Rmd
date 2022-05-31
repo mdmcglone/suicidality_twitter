@@ -24,14 +24,7 @@ library(workflows)
 library(lubridate)
 
 
-token <- create_token(
-  app = "Em_McGlone_app",
-  consumer_key = "cvCws6VHnW64OWY0oEtWig0Hh",
-  consumer_secret = "97gUtYedsIFZa1joHm5LLf0QZ3YzMo4M0qt59oJzcJjsTZtJC1",
-  access_token = "1490055956667023368-riJ4mkVKxZUV54OKMkPlZFXzE7cvrc",
-  access_secret = "FMQMm4qxzTPJWHoYRXpI9cqOsOlJpB5P5CZDJ1hwu4fL1",
-  set_renv = TRUE
-)
+#Generate token
 
 
 logfit <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/1343finalhelpers/logitfit_1343.rds")
