@@ -1,0 +1,294 @@
+---
+title: "final1343"
+author: "em"
+date: '2022-05-03'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(rtweet)
+
+source("new_functions;).R")
+
+token <- create_token(
+  app = "Em_McGlone_app",
+  consumer_key = "cvCws6VHnW64OWY0oEtWig0Hh",
+  consumer_secret = "97gUtYedsIFZa1joHm5LLf0QZ3YzMo4M0qt59oJzcJjsTZtJC1",
+  access_token = "1490055956667023368-riJ4mkVKxZUV54OKMkPlZFXzE7cvrc",
+  access_secret = "FMQMm4qxzTPJWHoYRXpI9cqOsOlJpB5P5CZDJ1hwu4fL1",
+  set_renv = TRUE
+)
+
+
+```
+
+
+```{r}
+id <- search_tweets("i am suicidal AND -filter:retweets
+AND -filter:quote AND -filter:replies", n = 3)
+```
+
+```{r}
+max_id = id$status_id
+
+```
+
+
+```{r}
+#scrape suicidal tweets for bert model
+
+
+
+sui <- search_fullarchive(
+      q = "I'm suicidal OR I hurt myself OR hang myself OR hung myself OR kill myself OR I want to die OR I want death OR I want to be dead",
+      n = 1000,
+      fromDate = 201704010000, 
+      toDate = 201705010000,
+      env_name = "final1343",
+      safedir = NULL,
+      parse = TRUE,
+      token = token
+  )
+
+```
+
+
+```{r}
+# scrape non suicidal tweets
+non_sui <- search_fullarchive(
+      q = "want OR don't OR do OR person OR will OR feel OR like OR gonna OR with OR was OR day OR can OR know OR make OR get",
+      n = 1000,
+      fromDate = 201704010000, 
+      toDate = 201705010000,
+      env_name = "final1343",
+      safedir = NULL,
+      parse = TRUE,
+      token = token)
+
+
+
+```
+
+```{r}
+# scrape non suicidal tweets
+abt_die <- search_30day(
+      q = "died OR commited suicide OR overdosed OR passed away OR dying OR hospital OR hurts OR pain OR hate",
+      n = 1,
+      fromDate = 202204010000, 
+      toDate = 202205010000,
+      env_name = "final1343",
+      safedir = NULL,
+      parse = TRUE,
+      token = token)
+
+
+
+```
+
+
+```{r}
+
+df <- rbind(test_df, abt_die)
+
+write_rds(df, "sui_twit2.rds")
+
+```
+
+
+```{r}
+reason0 <- search_fullarchive(
+      q = "want OR don't OR do OR person OR will OR feel OR like OR gonna OR with OR was OR day OR can OR know OR make OR get OR time OR make OR happy OR sad OR angry OR dog OR hate OR die OR kill OR need OR over OR under OR about OR man OR woman OR they OR more OR less OR better OR worse OR middle OR right OR low OR high OR live OR life OR take OR give OR pain",
+      n = 500,
+      fromDate = 201703010000, 
+      toDate = 201703020000,
+      env_name = "final1343c",
+      safedir = NULL,
+      parse = TRUE,
+      token = token)
+
+write_rds(reason0, "reason0_scrape.rds")
+
+
+
+reason0_text <- reason0$text
+reason0_emb  <- textEmbed(reason0_text, model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+reason0_prob <- textPredict(rf_we,
+            new_data = reason0_emb$x,
+            type = "prob") 
+
+reason0_prob <- reason0_prob %>% mutate(guess = as.factor(ifelse(reason0_prob$.pred_0 < .62, 1, 0)))
+
+reason0_final <- cbind(reason0_text,reason0_prob)
+view(reason0_final)
+
+write_rds(reason0_final, "reason0_final.rds")
+
+```
+
+```{r}
+reason1 <- search_fullarchive(
+      q = "want OR don't OR do OR person OR will OR feel OR like OR gonna OR with OR was OR day OR can OR know OR make OR get OR time OR make OR happy OR sad OR angry OR dog OR hate OR die OR kill OR need OR over OR under OR about OR man OR woman OR they OR more OR less OR better OR worse OR middle OR right OR low OR high OR live OR life OR take OR give OR pain",
+      n = 500,
+      fromDate = 201704140000, 
+      toDate = 201704150000,
+      env_name = "final1343c",
+      safedir = NULL,
+      parse = TRUE,
+      token = token)
+
+write_rds(reason1, "reason1_scrape.rds")
+
+
+reason1_text <- reason1$text
+reason1_emb  <- textEmbed(reason1_text, model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+reason1_prob <- textPredict(rf_we,
+            new_data = reason1_emb$x,
+            type = "prob") 
+
+reason1_prob <- reason1_prob %>% mutate(guess = as.factor(ifelse(reason1_prob$.pred_0 < .62, 1, 0)))
+
+
+reason1_final <- cbind(reason1_text,reason1_prob)
+view(reason1_final)
+
+write_rds(reason1_final, "reason1_final.rds")
+
+
+```
+
+```{r}
+# reason2 <- search_fullarchive(
+#       q = "want OR don't OR do OR person OR will OR feel OR like OR gonna OR with OR was OR day OR can OR know OR make OR get OR time OR make OR happy OR sad OR angry OR dog OR hate OR die OR kill OR need OR over OR under OR about OR man OR woman OR they OR more OR less OR better OR worse OR middle OR right OR low OR high OR live OR life OR take OR give OR pain",
+#       n = 500,
+#       fromDate = 201706010000, 
+#       toDate = 201706020000,
+#       env_name = "final1343c",
+#       safedir = NULL,
+#       parse = TRUE,
+#       token = token)
+# 
+# write_rds(reason2, "reason2_scrape.rds")
+
+
+reason2_text <- reason2$text
+reason2_emb  <- textEmbed(reason2_text, model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+reason2_prob <- textPredict(rf_we,
+            new_data = reason2_emb$x,
+            type = "prob") 
+
+reason2_prob <- reason2_prob %>% mutate(guess = as.factor(ifelse(reason2_prob$.pred_0 < .62, 1, 0)))
+
+
+reason2_final <- cbind(reason2_text,reason2_prob)
+view(reason2_final)
+
+write_rds(reason2_final, "reason2_final.rds")
+
+
+```
+
+```{r}
+donnie <- read.csv("/Users/emdmcglone/Desktop/Spring 2022/botocracy/donnie.csv")
+
+donnie_text <- donnie$text
+
+donnie_emb  <- textEmbed(donnie_text, model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+donnie_prob <- textPredict(rf_we,
+            new_data = donnie_emb$x,
+            type = "prob") 
+
+donnie_prob <- donnie_prob %>% mutate(guess = as.factor(ifelse(donnie_prob$.pred_0 < .62, 1, 0)))
+
+
+donnie_final <- cbind(donnie,donnie_prob)
+view(donnie_final)
+
+write_rds(donnie_final, "donnie_final.rds")
+
+```
+
+
+```{r}
+donnie_final <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/donnie_final.rds")
+
+donnie_final <- cbind(donnie_final, number = nrow(donnie_final):1)
+donnie_final2 <- donnie_final[1:1880,]
+
+donnie_buckets = data.frame()
+for (i in 1:188) {
+  a <- (1 + (i-1)*10):(10*i) 
+  temp <- donnie_final2[a,".pred_1"]
+  mean_temp <- mean(temp)
+  donnie_buckets <- append(donnie_buckets, mean_temp)
+}
+donnie_buckets <- unlist(donnie_buckets)
+donnie_buckets <- data.frame(cbind(donnie_buckets, 188:1))
+
+reg_line <- lm(donnie_buckets ~ V2, donnie_buckets)
+```
+
+```{r}
+
+polls <- c(42.2, 41.7, 40.3, 40.3, 40.8, 42, 41.9, 42.2, 43, 42.6, 43, 42.9, 42.8, 42.5, 44)
+polls <- polls/mean(polls)*0.2325
+polls <- cbind(polls, 0:length(polls)*188/18*.85)
+polls <- rbind(polls,polls,polls,polls,polls,polls,polls,polls,polls,polls,polls,polls[1:12,])
+
+
+ggplot(donnie_buckets, aes(y = donnie_buckets, x = V2)) +
+  geom_smooth(aes(y = polls[,1], x = polls[,2]), color = "red", se = FALSE) + 
+  geom_smooth(color = "black", se = FALSE) + 
+  geom_vline(xintercept = 0, color = "gray", alpha = .75) +
+  geom_vline(xintercept = 1*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) +
+  geom_vline(xintercept = 2*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) +
+  geom_vline(xintercept = 3*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) +
+  geom_vline(xintercept = 4*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) +
+  geom_vline(xintercept = 5*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) + 
+  geom_vline(xintercept = 6*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) + 
+  geom_vline(xintercept = 7*(23/24)*length(donnie_buckets$V2)/7, color = "gray", alpha = 0.75) + 
+  theme_classic() + 
+  scale_x_continuous(breaks = c(0, 1*(23/24)*length(donnie_buckets$V2)/7, 2*(23/24)*length(donnie_buckets$V2)/7, 3*(23/24)*length(donnie_buckets$V2)/7, 4*(23/24)*length(donnie_buckets$V2)/7, 5*(23/24)*length(donnie_buckets$V2)/7, 6*(23/24)*length(donnie_buckets$V2)/7, 7*(23/24)*length(donnie_buckets$V2)/7), labels = c("June", "July", "August", "September", "October", "November", "December", "January")) +
+  labs(title = "Donald Trump's Suicidality During the 2020 Election Cycle",
+       subtitle = "Suicidality Score in Black, Trump's General Election Poll Percent in Red",
+       x = "Months in 2020",
+       y = "Suicidality Score" ) + 
+  annotate(geom="text", x=65, y=.237, label="Biden Wins Primary",
+              color="black", size = 2) + 
+    annotate(geom="text", x=135.5, y=.2320, label="Trump Loses Presidency",
+              color="black", size = 2) +
+      annotate(geom="text", x=162, y=.2315, label="Covid Vaccines Released",
+              color="black", size = 2) +
+   annotate(geom="text", x=13, y=.2330, label="Dem Primary Cycle",
+              color="black", size = 2) +
+     annotate(geom="text", x=13, y=.2325, label="(Biden Winning)",
+              color="black", size = 2) +
+   annotate(geom="text", x=190, y=.2320, label="Capitol Riots",
+              color="black", size = 2) +
+  annotate(geom="text", x=190, y=.2315, label="Trump Banned",
+              color="black", size = 2) +
+annotate(geom="text", x=190, y=.2310, label="From Twitter",
+              color="black", size = 2) 
+
+
+
+
+```
+
+
+```{r}
+check0 <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/reason0_final.rds")
+check1 <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/reason1_final.rds")
+check2 <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/reason2_final.rds")
+
+
+
+```

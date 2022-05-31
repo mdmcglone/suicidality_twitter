@@ -1,0 +1,252 @@
+---
+title: "final1343_wordembed"
+author: "em"
+date: '2022-05-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(rtweet)
+library(ranger)
+library(keras)
+library(reticulate)
+library(tensorflow) 
+library(text)
+library(reticulate)
+library(glmnet)
+library(parsnip)
+library(workflows)
+library(lubridate)
+```
+
+```{r}
+
+token <- create_token(
+  app = "Em_McGlone_app",
+  consumer_key = "cvCws6VHnW64OWY0oEtWig0Hh",
+  consumer_secret = "97gUtYedsIFZa1joHm5LLf0QZ3YzMo4M0qt59oJzcJjsTZtJC1",
+  access_token = "1490055956667023368-riJ4mkVKxZUV54OKMkPlZFXzE7cvrc",
+  access_secret = "FMQMm4qxzTPJWHoYRXpI9cqOsOlJpB5P5CZDJ1hwu4fL1",
+  set_renv = TRUE
+)
+
+source("helpers.R")
+
+bot_check("hemanthbharatha", 38)
+
+```
+
+```{r}
+#sources
+source("~/sui_tweet_clean.R")
+sui_twt <- sui_twit2
+
+#add id and response
+identity <- 1:3000
+sui_twt <- cbind(identity, sui_twt)
+sui_twt <- sui_twt %>% mutate(sui = ifelse(identity > 1000, 0, 1))
+
+#train/test split
+index <- sample(1:nrow(sui_twt), size = floor(.75*nrow(sui_twt)))
+train_unc <- sui_twt[index,]
+test_unc <- sui_twt[-index,]
+
+#clean dfs
+train <- twt_clean(train_unc)
+test <- twt_clean(test_unc)
+
+#separate response
+resp_test <- test %>% select(sui, identity)
+resp_train <- train %>% select(sui)
+
+#separate text
+train_text <- text_cols(train)
+test_text <- text_cols(test)
+
+
+#test_we
+
+
+
+```
+
+```{r}
+train.control = trainControl(
+  method = 'cv', 
+  number = 5
+  )
+
+#get word embeddings
+train_we1 <- textEmbed(train_text[1:1000,1], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+train_we2 <- textEmbed(train_text[1:1000,2], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+train_we3 <- textEmbed(train_text[1:1000,3], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+train_we4 <- textEmbed(train_text[1:1000,4], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+train_we5 <- textEmbed(train_text[1:1000,5], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+
+we1 <- prcomp(train_we1[[1]], center = T, scale = T)
+we2 <- prcomp(train_we2[[1]], center = T, scale = T)
+we3 <- prcomp(train_we3[[1]], center = T, scale = T)
+we4 <- prcomp(train_we4[[1]], center = T, scale = T)
+we5 <- prcomp(train_we5[[1]], center = T, scale = T)
+
+
+we1 <- as.tibble(we1$x[,1:50]) 
+colnames(we1) <- 1:50
+we2 <- as.tibble(we2$x[,1:50])
+colnames(we2) <- 51:100
+we3 <- as.tibble(we3$x[,1:50])
+colnames(we3) <- 101:150
+we4 <- as.tibble(we4$x[,1:50])
+colnames(we4) <- 151:200
+we5 <- as.tibble(we5$x[,1:50])
+colnames(we5) <- 201:250
+
+
+train_input <- cbind(train[1:1000,] %>% select(-c(name, screen_name, hashtags, text, description, identity, user_id, status_id)), we1[,1:50], we2[,1:50], we3[,1:50], we4[,1:50], we5[,1:50])
+
+fit <- train(sui ~.,
+               data = train_input[1:750,],
+               method = 'svmLinear',
+               trControl = train.control)
+
+sui_preds <- predict(fit, newdata = train_input[751:1000,])
+
+acc <- cbind(sui_preds, train_input[751:1000,] %>% select(sui)
+             %>% mutate(signal = ifelse(sui_preds > .5,1,0))
+             %>% mutate(match = ifelse(signal == sui, 1, 0)))
+
+confusionMatrix(as.factor(acc$signal), as.factor(acc$sui))
+
+mean(acc$match)
+```
+
+
+
+```{r}
+glmfit <- glm(sui ~.,
+               data = train_input[1:750,c(1,13:ncol(train_input))],
+               family = gaussian()
+               )
+
+sui_preds <- predict(glmfit, newdata = train_input[751:1000,])
+
+acc <- cbind(sui_preds, train_input[751:1000,] %>% select(sui)
+             %>% mutate(signal = ifelse(sui_preds > .50,1,0))
+             %>% mutate(match = ifelse(signal == sui, 1, 0))
+             %>% cbind(train[751:1000,] %>% select(c(text, hashtags, screen_name, name, description))))
+
+confusionMatrix(as.factor(acc$signal), as.factor(acc$sui))
+
+glmfit
+```
+
+```{r}
+write_rds(glmfit, "logitfit_1343.rds")
+write_rds(fit, "svmfit_1343.rds")
+write_rds(acc, "test_results_1343.rds")
+write_rds(train_input, "train_input_1343.rds")
+
+
+```
+
+
+```{r}
+the_text <- train_text$text[1:1000]
+
+emb_text <- textEmbed(the_text, model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+rf_we_response <- as.factor(resp_train$sui)
+
+rf_we <- textTrainRandomForest(
+      x = emb_text$x,
+      y = rf_we_response[1:1000],
+      trees = c(1000, 1500, 2000),
+      multi_cores = TRUE,
+      seed = TRUE
+)
+
+write_rds(rf_we, "rf_we1343.rds")
+write_rds(emb_text, "model_emb1343.rds")
+
+final <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/model_emb1343.rds")
+tweets <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/1343finalhelpers/sui_twit2.rds")
+rf_we <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/rf_we1343.rds")
+train_input <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/1343finalhelpers/train_input_1343.rds")
+
+final_prob <- textPredict(rf_we,
+            new_data = final$x,
+            type = "prob") 
+
+rmse <- cbind(final_prob, train_input$sui)
+rmse <- rmse %>% mutate(error = abs(.pred_1 - `train_input$sui`))
+
+sqrt(mean(rmse$error^2))
+
+```
+
+```{r}
+cutoff_table <- tibble(truth = as.factor(rf_we$truth_predictions$truth), 
+                       guess = as.factor(ifelse(rf_we$truth_predictions$.pred_0 < .62, 1, 0)))
+
+conf_mat <- confusionMatrix(cutoff_table$guess, cutoff_table$truth)
+#rf_we
+conf_mat <- data.frame(conf_mat$table)
+
+names(conf_mat) <- c("Prediction","Target","N")
+
+plot_confusion_matrix(conf_mat)
+
+rf_we
+
+```
+
+```{r}
+
+projection <- textProjection(
+  words = ""
+  word_embeddings = emb_text$x,
+  single_word_embeddings = emb_text$singlewords_we,
+  x = c(seq(0,1, length = 1000)),
+  split = "mean",
+  Npermutations = 10,
+  n_per_split = 1)
+
+
+plot_projection <- textProjectionPlot(
+  word_data = projection,
+  y_axes = TRUE,
+  title_top = " Supervised Bicentroid Projection of Harmony in life words",
+  x_axes_label = "Low vs. High HILS score",
+  y_axes_label = "Low vs. High SWLS score",
+  position_jitter_hight = 0.5,
+  position_jitter_width = 0.8
+)
+plot_projection
+#> $final_plot
+
+```
+
+
+```{r}
+rf_newdata_scrape <- search_tweets("need OR does OR doesn't OR people OR won't OR feeling OR love OR hate OR die OR is OR today OR cannot OR gonna OR got", n = 1000, lang = "en")
+rf_newdata_text <- rf_newdata_scrape$text
+rf_newdata_emb  <- textEmbed(rf_newdata_text, model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+rf_preds_prob <- textPredict(rf_we,
+            new_data = rf_newdata_emb$x,
+            type = "prob") 
+
+rf_preds_prob <- rf_preds_prob %>% mutate(guess = as.factor(ifelse(rf_preds_prob$.pred_0 < .62, 1, 0)))
+
+rf_preds_class <- textPredict(rf_we,
+            new_data = rf_newdata_emb$x,
+            type = "class") 
+
+view(cbind(rf_newdata_text,rf_preds_prob, rf_preds_class))
+```

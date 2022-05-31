@@ -1,0 +1,95 @@
+---
+title: "final1343_newtweets"
+author: "em"
+date: '2022-05-06'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(rtweet)
+library(keras)
+library(reticulate)
+library(tensorflow) 
+library(text)
+library(reticulate)
+library(glmnet)
+library(parsnip)
+library(workflows)
+library(lubridate)
+
+
+token <- create_token(
+  app = "Em_McGlone_app",
+  consumer_key = "cvCws6VHnW64OWY0oEtWig0Hh",
+  consumer_secret = "97gUtYedsIFZa1joHm5LLf0QZ3YzMo4M0qt59oJzcJjsTZtJC1",
+  access_token = "1490055956667023368-riJ4mkVKxZUV54OKMkPlZFXzE7cvrc",
+  access_secret = "FMQMm4qxzTPJWHoYRXpI9cqOsOlJpB5P5CZDJ1hwu4fL1",
+  set_renv = TRUE
+)
+source("~/sui_tweet_clean.R")
+
+logfit <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/1343finalhelpers/logitfit_1343.rds")
+svmfit <- read_rds("/Users/emdmcglone/Desktop/Spring 2022/botocracy/botocracy/1343finalhelpers/svmfit_1343.rds")
+```
+
+
+```{r}
+#scrape tweets
+test_tweets <- search_tweets(q = 'today', n = 100)
+```
+
+```{r}
+#clean
+test_tweets2 <- twt_clean_new(test_tweets)
+
+test_tweets_text <- text_cols(test_tweets2)
+
+
+```
+
+
+```{r}
+#word embeddings
+tweets_we1 <- textEmbed(test_tweets_text[,1], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+tweets_we2 <- textEmbed(test_tweets_text[,2], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+tweets_we3 <- textEmbed(test_tweets_text[,3], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+tweets_we4 <- textEmbed(test_tweets_text[,4], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+tweets_we5 <- textEmbed(test_tweets_text[,5], model = "bert-base-uncased", layers = 11:12, print_python_warnings = T)
+
+
+twe1 <- prcomp(tweets_we1[[1]], center = T, scale = T)
+twe2 <- prcomp(tweets_we2[[1]], center = T, scale = T)
+twe3 <- prcomp(tweets_we3[[1]], center = T, scale = T)
+twe4 <- prcomp(tweets_we4[[1]], center = T, scale = T)
+twe5 <- prcomp(tweets_we5[[1]], center = T, scale = T)
+
+
+twe1 <- as.tibble(twe1$x[,1:50]) 
+colnames(twe1) <- 1:50
+twe2 <- as.tibble(twe2$x[,1:50])
+colnames(twe2) <- 51:100
+twe3 <- as.tibble(twe3$x[,1:50])
+colnames(twe3) <- 101:150
+twe4 <- as.tibble(twe4$x[,1:50])
+colnames(twe4) <- 151:200
+twe5 <- as.tibble(twe5$x[,1:50])
+colnames(twe5) <- 201:250
+
+tweets_input <- cbind(test_tweets2 %>% select(-c(name, screen_name, hashtags, text, description, user_id, status_id)), twe1[,1:50], twe2[,1:50], twe3[,1:50], twe4[,1:50], twe5[,1:50])
+
+
+sui_preds_new <- predict(svmfit, newdata = tweets_input)
+
+acc_new <- cbind(sui_preds_new, test_tweets_text %>% mutate(signal = ifelse(sui_preds_new > .5,1,0)))
+
+#confusionMatrix(as.factor(acc$signal), as.factor(acc$sui))
+
+
+
+
+```
